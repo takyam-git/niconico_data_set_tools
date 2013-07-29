@@ -1,6 +1,9 @@
+require 'rubygems'
+require 'bundler/setup'
 require 'json'
 require 'mongo'
 require 'time'
+require 'zlib'
 
 #create mongo connection
 mongo = Mongo::Connection.new
@@ -8,11 +11,15 @@ db = mongo.db('niconico')
 collection = db.collection('videos')
 complete_files = db.collection('complete_files')
 
-Dir::entries(path_base = Dir::pwd+'/download').each do |file_name|
+puts 'connection complete, process start'
+
+Dir::entries(path_base = Dir::pwd+'/download').sort.each do |file_name|
   next if !(file_name =~ /\.gz$/)
   path = path_base + '/' + file_name
+  puts "start #{file_name}"
   if complete_files.find(:file_path => path).to_a.size <= 0
     Zlib::GzipReader.open(path) do |gz|
+
       #read gzip
       gz = gz.read.split(/\r\n|\n\r|\n|\r/)
       gz.each do |json|
@@ -32,6 +39,12 @@ Dir::entries(path_base = Dir::pwd+'/download').each do |file_name|
       end
       #add complete flag
       complete_files.insert({:file_path => path})
+      puts "#{file_name} success! and start remove file..."
+      File.delete(path) if FileTest.exists?(path)
+      puts "#{file_name} complete!"
     end
+  else
+    File.delete(path) if FileTest.exists?(path)
+    puts "#{file_name} is completed yet, skip this."
   end
 end
